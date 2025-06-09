@@ -93,19 +93,18 @@ class TelegramFormatter:
         text = topic.talk.text
         soup = BeautifulSoup(text, "html.parser")
         hashtags = soup.find_all('e', attrs={'type': 'hashtag'})
+        tags = ["#知识星球", "#"+topic.group.name.replace(' ', '_')]
         if hashtags:
-            tags = ["#知识星球", "#"+topic.group.name.replace(' ', '_')]
             for tag in hashtags:
                 if isinstance(tag, Tag):
                     tag_name = unquote(get_attr_safe(tag, 'title'))
                     tag_name = tag_name.strip("#")
                     tags.append(f"#{tag_name.replace(' ', '_')}")
-            if tags:
-                message_parts.append(" ".join(tags) + "\n")
-        
+        if tags:
+            message_parts.append(" ".join(tags) + "\n")
         # Format title
         if topic.title:
-            message_parts.append(f"<b>{TelegramFormatter.escape_html(topic.title)}</b>\n")
+            message_parts.append(f"📌 <b>《{TelegramFormatter.escape_html(topic.title)}》</b>\n")
         
         # Format main text
         text = TelegramFormatter.escape_html(topic.talk.text)
@@ -122,6 +121,8 @@ class TelegramFormatter:
         # Add media counts in metadata
         if topic.talk.images:
             meta_parts.append(f"🖼 {len(topic.talk.images)}张图片")
+        if topic.talk.files:
+            meta_parts.append(f"📎 {len(topic.talk.files)}个文件")
             
         if topic.likes_count > 0:
             emoji_info = []
@@ -137,12 +138,22 @@ class TelegramFormatter:
         # Add metadata section
         message_parts.append("\n\n" + " | ".join(meta_parts))
         
+        # Add media section (images and files with their links)
+        media_parts = []
+        
         # Add image links if any
         if topic.talk.images:
-            image_links = []
             for img in topic.talk.images:
-                image_links.append(f"<a href='{img.original.url}'>查看原图</a>")
-            message_parts.append("\n\n" + " | ".join(image_links))
+                media_parts.append(f"<a href='{img.original.url}'>查看原图</a>")
+                    
+        # Add file links if any
+        if topic.talk.files:
+            for file in topic.talk.files:
+                size_mb = file.size / 1024 / 1024
+                media_parts.append(f"📎 <code>{TelegramFormatter.escape_html(file.name)}</code> ({size_mb:.1f}MB)")
+                
+        if media_parts:
+            message_parts.append("\n\n" + " | ".join(media_parts))
         
         # Add timestamp in local time format
         if isinstance(topic.create_time, datetime):

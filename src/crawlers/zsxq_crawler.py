@@ -68,11 +68,6 @@ class ZsxqCrawler:
                 for topic_data in topics_data:
                     try:
                         topic = Topic.from_dict(topic_data)
-                        
-                        if "如何计算奖励" in topic.title: 
-                            conten =json.dumps(topic_data, ensure_ascii=False)
-                            print(f"跳过奖励计算主题：{conten}")
-                        
                         # 如果遇到已经处理过的主题 ID，说明后面的都是重复的，停止处理
                         if last_topic_id and topic.topic_id == last_topic_id:
                             print(f"发现已处理过的主题 ID: {topic.topic_id}，停止处理")

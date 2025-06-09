@@ -72,6 +72,36 @@ class Group:
 
 
 @dataclass
+class File:
+    file_id: int
+    name: str
+    hash: str
+    size: int
+    download_count: int
+    create_time: datetime
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        create_time_str = data.get('create_time', '')
+        try:
+            create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S.%f%z')
+        except ValueError:
+            try:
+                create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S%z')
+            except ValueError:
+                create_time = datetime.now()
+        
+        return cls(
+            file_id=int(data.get('file_id', 0)),
+            name=data.get('name', ''),
+            hash=data.get('hash', ''),
+            size=data.get('size', 0),
+            download_count=data.get('download_count', 0),
+            create_time=create_time
+        )
+
+
+@dataclass
 class Like:
     create_time: datetime
     owner: User
@@ -146,15 +176,18 @@ class Talk:
     owner: User
     text: str
     images: List[Image] = field(default_factory=list)
+    files: List[File] = field(default_factory=list)
     title: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: dict):
         images = [Image.from_dict(img) for img in data.get('images', [])]
+        files = [File.from_dict(f) for f in data.get('files', [])]
         return cls(
             owner=User.from_dict(data.get('owner', {})),
             text=data.get('text', ''),
             images=images,
+            files=files,
             title=data.get('title')
         )
 
