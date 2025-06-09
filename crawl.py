@@ -40,10 +40,17 @@ def main():
                     try:
                         # Format and send each topic
                         message = TelegramFormatter.format_topic(topic)
-                        notifier.send_message_sync(message, parse_mode='HTML')
+                        
+                        # Download and send with media if available
+                        notifier.send_message_sync(
+                            text=message,
+                            images=topic.talk.images,
+                            files=topic.talk.files,
+                            parse_mode='HTML'
+                        )
                         success_count += 1
                         print(f"已发送主题：{topic.title or f'ID:{topic.topic_id}'}")
-                        time.sleep(1)  # 避免发送太快
+                        time.sleep(2)  # 避免发送太快，增加延迟因为现在要处理媒体文件
                     except Exception as e:
                         print(f"发送消息失败：{str(e)}")
                         continue
@@ -63,7 +70,7 @@ def main():
         error_msg = f"抓取过程发生错误：{str(e)}"
         print(error_msg)
         try:
-            notifier.send_message_sync(f"⚠️ {error_msg}")
+            notifier.send_message_sync(text=f"⚠️ {error_msg}")
         except:
             pass
 
