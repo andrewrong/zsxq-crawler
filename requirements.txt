@@ -1,0 +1,6 @@
+requests>=2.25.1
+beautifulsoup4>=4.9.3
+pdfkit>=1.0.0
+python-telegram-bot>=20.0
+urllib3>=2.0.0
+python-dotenv>=1.0.0
