@@ -112,7 +112,7 @@ class ZsxqCrawler:
                 
                 # Stop if we found the last topic or no new topics in this batch
                 if found_last_topic:
-                    if not current_batch.empty():
+                    if len(current_batch) > 0:
                         all_topics.extend(current_batch)
                     break
                     

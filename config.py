@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, Any
 from src.utils.group_config import GroupConfigManager
 
 def get_env_or_default(key: str, default: str = None) -> Optional[str]:
-    """Get environment variable or return default value"""
-    return os.environ.get(key, default)
+    """Get environment variable with default value"""
+    return os.getenv(key, default)
 
 # 知识星球 settings - from environment variables
 COOKIE = get_env_or_default('ZSXQ_COOKIE')
@@ -19,6 +19,7 @@ GROUP_CONFIG_MANAGER = GroupConfigManager(groups_config)
 
 # Crawling settings
 MAX_TOPICS_PER_FETCH = 20
+CRAWL_INTERVAL_MINUTES = int(get_env_or_default('CRAWL_INTERVAL_MINUTES', '60'))  # Default to 60 minutes
 
 # Telegram settings - from environment variables
 TELEGRAM_BOT_TOKEN = get_env_or_default('TELEGRAM_BOT_TOKEN')
