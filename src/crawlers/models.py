@@ -248,3 +248,29 @@ class Topic:
         if isinstance(self.create_time, datetime):
             return self.create_time
         return None
+
+@dataclass
+class SimpleTopic:
+    topic_id: int
+    title: str
+    create_time: datetime
+    likes_count: int
+    owner: User
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        create_time_str = data.get('create_time', '')
+        try:
+            create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S.%f%z')
+        except ValueError:
+            try:
+                create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S%z')
+            except ValueError:
+                create_time = datetime.now()
+        return cls(
+            topic_id=int(data.get('topic_id', 0)),
+            title=data.get('title', ''),
+            likes_count=data.get('likes_count', 0),
+            owner=User.from_dict(data.get('owner', {})),
+            create_time=create_time
+        )

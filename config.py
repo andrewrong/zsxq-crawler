@@ -27,6 +27,9 @@ ZSXQ_GROUP_ID = get_env_or_default('ZSXQ_GROUP_ID')
 # Crawling settings
 MAX_TOPICS_PER_FETCH = 20
 
+# 是否采集home
+IS_CRAWL_HOME = get_env_or_default('IS_CRAWL_HOME', 'true').lower() == 'true'
+
 # Telegram settings - from environment variables
 TELEGRAM_BOT_TOKEN = get_env_or_default('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = get_env_or_default('TELEGRAM_CHAT_ID')

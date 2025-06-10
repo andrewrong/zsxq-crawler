@@ -64,6 +64,8 @@ class TelegramNotifier:
             # 处理文件
             if files:
                 for file in files:
+                    if not hasattr(file, 'url'):
+                        continue
                     file_path = FileDownloader.download_file(file.url, file.name)
                     if file_path:
                         media_group.append(InputMediaDocument(
@@ -77,7 +79,8 @@ class TelegramNotifier:
             if media_group:
                 await self.bot.send_media_group(
                     chat_id=self.chat_id,
-                    media=media_group
+                    media=media_group,
+                    message_thread_id=self.topic_id,  # 如果需要跟踪线程
                 )
                 # 如果文件太多，可能 caption 放不下，就单独发送消息
                 if len(media_group) > 1:

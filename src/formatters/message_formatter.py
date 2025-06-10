@@ -41,13 +41,6 @@ def handle_link(text: str) -> str:
             mention_name = get_attr_safe(mention, 'title')
             mention.replace_with(soup.new_string(f"@{mention_name}"))
 
-    # 处理话题标签
-    hashtags = soup.find_all('e', attrs={'type': 'hashtag'})
-    for tag in hashtags:
-        if isinstance(tag, Tag):
-            tag_name = unquote(get_attr_safe(tag, 'title'))
-            tag.replace_with(soup.new_string(f"#{tag_name}"))
-
     # 处理网页链接
     links = soup.find_all('e', attrs={'type': 'web'})
     for link in links:
@@ -85,7 +78,7 @@ class TelegramFormatter:
         return text  # handle_link already includes HTML escaping
 
     @staticmethod
-    def format_topic(topic: Topic) -> str:
+    def format_topic(topic: Topic, crawl_type: str) -> str:
         """Format a topic for Telegram message"""
         message_parts = []
         
@@ -94,6 +87,7 @@ class TelegramFormatter:
         soup = BeautifulSoup(text, "html.parser")
         hashtags = soup.find_all('e', attrs={'type': 'hashtag'})
         tags = ["#知识星球", "#"+topic.group.name.replace(' ', '_')]
+        tags.append("#"+crawl_type)
         if hashtags:
             for tag in hashtags:
                 if isinstance(tag, Tag):
@@ -104,7 +98,8 @@ class TelegramFormatter:
             message_parts.append(" ".join(tags) + "\n")
         # Format title
         if topic.title:
-            message_parts.append(f"📌 <b>《{TelegramFormatter.escape_html(topic.title)}》</b>\n")
+            url = f"https://wx.zsxq.com/group/{topic.group.group_id}/topic/{topic.topic_id}"
+            message_parts.append(f"📌 <a href='{url}'>《{TelegramFormatter.escape_html(topic.title)}》</a>\n")
         
         # Format main text
         text = TelegramFormatter.escape_html(topic.talk.text)
