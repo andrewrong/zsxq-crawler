@@ -8,7 +8,7 @@ from pathlib import Path
 from telegram import Bot, InputMediaDocument, InputMediaPhoto
 from telegram.error import TelegramError
 
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPIC_ID
 
 from ..utils.file_downloader import FileDownloader
 
@@ -18,9 +18,11 @@ class TelegramNotifier:
         if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
             self.bot = Bot(token=TELEGRAM_BOT_TOKEN)
             self.chat_id = TELEGRAM_CHAT_ID
+            self.topic_id = TELEGRAM_TOPIC_ID  # 用于跟踪消息 ID，如果需要的话
         else:
             self.bot = None
             self.chat_id = None
+            self.topic_id = None
         self._loop = None
 
     @property
@@ -81,6 +83,7 @@ class TelegramNotifier:
                 if len(media_group) > 1:
                     await self.bot.send_message(
                         chat_id=self.chat_id,
+                        message_thread_id=self.topic_id,  # 如果需要跟踪线程
                         text=text,
                         parse_mode=parse_mode,
                         disable_web_page_preview=False  # 允许预览
@@ -88,6 +91,7 @@ class TelegramNotifier:
             else:
                 await self.bot.send_message(
                     chat_id=self.chat_id,
+                    message_thread_id=self.topic_id,  # 如果需要跟踪线程
                     text=text,
                     parse_mode=parse_mode,
                     disable_web_page_preview=False  # 允许预览
@@ -99,6 +103,7 @@ class TelegramNotifier:
             try:
                 await self.bot.send_message(
                     chat_id=self.chat_id,
+                    message_thread_id=self.topic_id,  # 如果需要跟踪线程
                     text=f"{text}\n\n⚠️ 媒体文件发送失败：{str(e)}",
                     parse_mode=parse_mode,
                     disable_web_page_preview=False

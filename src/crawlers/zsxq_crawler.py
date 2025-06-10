@@ -90,6 +90,7 @@ class ZsxqCrawler:
                     
                 # 把这批主题加入总列表
                 all_topics.extend(current_batch)
+                break
                 
                 # 使用最旧主题的时间作为下次查询的 end_time
                 if oldest_topic:

@@ -30,6 +30,7 @@ MAX_TOPICS_PER_FETCH = 20
 # Telegram settings - from environment variables
 TELEGRAM_BOT_TOKEN = get_env_or_default('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = get_env_or_default('TELEGRAM_CHAT_ID')
+TELEGRAM_TOPIC_ID = get_env_or_default('TELEGRAM_TOPIC_ID', None)
 
 # State persistence
 LAST_CRAWLED_FILE = 'last_crawled.json'
