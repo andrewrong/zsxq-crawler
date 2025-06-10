@@ -9,32 +9,38 @@ from urllib.parse import urlparse
 
 import requests
 
-from config import COOKIE, ZSXQ_GROUP_ID
+from config import COOKIE, GROUP_CONFIG_MANAGER
 
 from .models import Topic, SimpleTopic
 
 
 class ZsxqCrawler:
-    def __init__(self):
+    def __init__(self, group_id: str):
+        """
+        Initialize crawler for a specific group
+        
+        Args:
+            group_id: Group ID to crawl
+        """
         self.headers = {
             'Cookie': "zsxq_access_token=" + COOKIE,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        self.group_id = ZSXQ_GROUP_ID
+        self.group_id = group_id
         self.base_url = 'https://api.zsxq.com/v2'
         
     def _make_request(self, url: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """发送 API 请求并返回 JSON 响应"""
+        """Send API request and return JSON response"""
         try:
             response = requests.get(url, headers=self.headers, params=params)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            print(f"API 请求失败：{e}")
+            print(f"API request failed: {e}")
             raise
 
     def get_topic_detail(self, topic_id: str) -> Optional[Topic]:
-        """获取单个话题的详细信息"""
+        """Get detailed information for a single topic"""
         url = f"{self.base_url}/topics/{topic_id}/info"
         try:
             data = self._make_request(url)
@@ -42,18 +48,18 @@ class ZsxqCrawler:
                 topic_data = data['resp_data']['topic']
                 return Topic.from_dict(topic_data)
         except Exception as e:
-            print(f"获取话题详情失败 (ID: {topic_id}): {e}")
+            print(f"Failed to get topic detail (ID: {topic_id}): {e}")
         return None
 
     def get_digest_topics(self, count: int = 30, sort: str = 'by_create_time', direction: str = 'desc', last_topic_id: Optional[str] = None) -> Tuple[List[Topic], Optional[str]]:
         """
-        获取精华主题列表
+        Get digest topics list
         
         Args:
-            count: 每次获取的数量
-            sort: 排序方式 ('by_create_time')
-            direction: 排序方向 ('desc' 或 'asc')
-            last_topic_id: 上次爬取的最后一个主题 ID
+            count: Number of topics to fetch per request
+            sort: Sort method ('by_create_time')
+            direction: Sort direction ('desc' or 'asc')
+            last_topic_id: Last crawled topic ID
             
         Returns:
             tuple: (topics, last_topic_id)
@@ -74,7 +80,7 @@ class ZsxqCrawler:
                 if next_index is not None:
                     params['index'] = next_index
                     
-                print(f"正在获取精华主题，index={next_index}")
+                print(f"Fetching digest topics for group {self.group_id}, index={next_index}")
                 data = self._make_request(url, params)
                 
                 if not data.get('succeeded'):
@@ -84,16 +90,16 @@ class ZsxqCrawler:
                 topics_data = data.get('resp_data', {}).get('topics', [])
                 
                 if not topics_data:
-                    print("没有更多精华主题了")
+                    print(f"No more digest topics for group {self.group_id}")
                     break
                     
                 current_batch = []
                 for topic_data in topics_data:
                     try:
                         topic = SimpleTopic.from_dict(topic_data)
-                        # 如果遇到已经处理过的主题 ID，说明后面的都是重复的，停止处理
+                        # If we find the last processed topic ID, stop processing
                         if last_topic_id and topic.topic_id == last_topic_id:
-                            print(f"发现已处理过的精华主题 ID: {topic.topic_id}，停止处理")
+                            print(f"Found already processed digest topic ID: {topic.topic_id} for group {self.group_id}, stopping")
                             found_last_topic = True
                             break
 
@@ -101,40 +107,42 @@ class ZsxqCrawler:
                         if topic_detail:
                             current_batch.append(topic_detail)
                     except Exception as e:
-                        print(f"处理主题数据失败：{str(e)}")
+                        print(f"Failed to process topic data: {str(e)}")
                         continue
                 
-                # 如果发现了上次处理的主题，或者这批没有任何新主题，就停止
-                if found_last_topic or not current_batch:
+                # Stop if we found the last topic or no new topics in this batch
+                if found_last_topic:
+                    if not current_batch.empty():
+                        all_topics.extend(current_batch)
                     break
                     
-                # 把这批主题加入总列表
+                # Add this batch to the total list
                 all_topics.extend(current_batch)
                 
-                # 如果没有下一页的 index 了，就停止
+                # Stop if no more pages
                 if not next_index:
-                    print("没有下一页精华主题了")
+                    print(f"No more digest topics for group {self.group_id}")
                     break
                     
-                time.sleep(1)  # 避免请求太快
+                time.sleep(1)  # Avoid too frequent requests
                 
             except Exception as e:
-                print(f"获取精华主题失败：{str(e)}")
+                print(f"Failed to get digest topics for group {self.group_id}: {str(e)}")
                 break
         
         if not all_topics:
             return [], None
             
-        # 获取所有主题中最旧的一条作为 last_topic_id
+        # Get the oldest topic as last_topic_id
         oldest_topic = max(all_topics, key=lambda x: x.create_time)
         return all_topics, oldest_topic.topic_id
 
     def crawl_home_topics(self, last_topic_id=None, last_topic_create_time=None) -> Tuple[List[Topic], Optional[str]]:
         """
-        抓取主页话题列表
+        Crawl home page topics
         
         Args:
-            last_topic_id: 上次爬取的最后一个主题 ID
+            last_topic_id: Last crawled topic ID
             
         Returns:
             tuple: (topics, last_topic_id)
@@ -153,12 +161,12 @@ class ZsxqCrawler:
                 if end_time:
                     params['end_time'] = end_time
                     
-                print(f"正在获取主页消息，end_time={end_time}")
+                print(f"Fetching home topics for group {self.group_id}, end_time={end_time}")
                 data = self._make_request(url, params)
                 
                 topics_data = data.get('resp_data', {}).get('topics', [])
                 if not topics_data:
-                    print("没有更多消息了")
+                    print(f"No more topics for group {self.group_id}")
                     break
                     
                 current_batch = []
@@ -167,30 +175,32 @@ class ZsxqCrawler:
                 for topic_data in topics_data:
                     try:
                         topic = Topic.from_dict(topic_data)
-                        # 如果遇到已经处理过的主题 ID，说明后面的都是重复的，停止处理
+                        # If we find the last processed topic ID, stop processing
                         if last_topic_id and topic.topic_id == last_topic_id:
-                            print(f"发现已处理过的主题 ID: {topic.topic_id}，停止处理")
+                            print(f"Found already processed topic ID: {topic.topic_id} for group {self.group_id}, stopping")
                             found_last_topic = True
                             break
                         
                         current_batch.append(topic)
                         
-                        # 记录最旧的主题，用于下次查询
+                        # Record the oldest topic for next query
                         if not oldest_topic or topic.create_time < oldest_topic.create_time:
                             oldest_topic = topic
                             
                     except Exception as e:
-                        print(f"处理主题数据失败：{str(e)}")
+                        print(f"Failed to process topic data: {str(e)}")
                         continue
                 
-                # 如果发现了上次处理的主题，或者这批没有任何新主题，就停止
-                if found_last_topic or not current_batch:
+                # Stop if we found the last topic or no new topics in this batch
+                if found_last_topic:
+                    if current_batch:
+                        all_topics.extend(current_batch)
                     break
                     
-                # 把这批主题加入总列表
+                # Add this batch to the total list
                 all_topics.extend(current_batch)
                 
-                # 使用最旧主题的时间作为下次查询的 end_time
+                # Use the oldest topic's time for next query
                 if oldest_topic:
                     dt_object = oldest_topic.create_time
                     formatted_time = dt_object.strftime("%Y-%m-%dT%H:%M:%S")
@@ -198,15 +208,15 @@ class ZsxqCrawler:
                     timezone_offset = dt_object.strftime("%z") or "+0800"
                     end_time = f"{formatted_time}{milliseconds}{timezone_offset}"
                 
-                time.sleep(1)  # 避免请求太快
+                time.sleep(1)  # Avoid too frequent requests
                         
             except Exception as e:
-                print(f"抓取内容时发生错误：{str(e)}")
+                print(f"Error while crawling content for group {self.group_id}: {str(e)}")
                 break
         
         if not all_topics:
             return [], None
             
-        # 获取所有主题中最旧的一条作为 last_topic_id
+        # Get the oldest topic as last_topic_id
         oldest_overall = max(all_topics, key=lambda x: x.create_time)
         return all_topics, oldest_overall.topic_id
