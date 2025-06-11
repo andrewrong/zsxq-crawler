@@ -12,14 +12,16 @@ from src.crawlers.zsxq_crawler import ZsxqCrawler
 from src.formatters.message_formatter import TelegramFormatter
 from src.notifiers.telegram_notifier import TelegramNotifier
 from src.utils.group_config import GroupConfig
+from src.utils.logger import setup_logger
+from src.managers.group_manager import GroupManager
 from state_manager import CrawlType, StateManager
 
+logger = setup_logger(__name__)
 
 def process_topics(crawler, notifier, topics, crawl_type, thread_id):
     """Process topics: format and send to Telegram"""
     success_count = 0
     last_topic_id = None
-    last_created_at = None
     
     # Process topics from oldest to newest
     reversed_topics = list(reversed(topics))
@@ -35,26 +37,27 @@ def process_topics(crawler, notifier, topics, crawl_type, thread_id):
                 parse_mode='HTML'
             )
             success_count += 1
-            print(f"Sent topic: {topic.title or f'ID:{topic.topic_id}'}")
+            logger.info(f"Sent topic: {topic.title or f'ID:{topic.topic_id}'}")
             
             # Record last processed topic ID
-            if not last_created_at or topic.create_time > last_created_at:
-                last_created_at = topic.create_time
+            if not last_topic_id or topic.topic_id > last_topic_id:
                 last_topic_id = topic.topic_id
                 
             time.sleep(2)  # Avoid sending too fast
             
         except Exception as e:
-            print(f"Failed to process topic [ID:{topic.topic_id}]: {e}")
+            logger.error(f"Failed to process topic [ID:{topic.topic_id}]: {e}")
             continue
             
-    return success_count, last_topic_id, last_created_at
+    return success_count, last_topic_id
 
 
 def process_group(group_config: GroupConfig, notifier: TelegramNotifier):
     """Process a single group"""
     group_id = group_config.get_group_id()
-    print(f"\nProcessing group ID: {group_id}")
+    group_manager = GroupManager()
+    group_name = group_manager.get_group_name(group_id)
+    logger.info(f"Processing group: {group_name}")
     
     # Initialize crawler for this group
     crawler = ZsxqCrawler(group_id)
@@ -67,15 +70,15 @@ def process_group(group_config: GroupConfig, notifier: TelegramNotifier):
         topics, new_last_topic_id = crawler.crawl_home_topics(last_topic_id=last_home_id)
         if topics:
             thread_id = group_config.get_thread_id('home')
-            success_count, last_topic_id, last_created_at = process_topics(crawler, notifier, topics, CrawlType.HOME.value, thread_id)
+            success_count, last_topic_id = process_topics(crawler, notifier, topics, CrawlType.HOME.value, thread_id)
             if success_count > 0:
                 StateManager.save_state(group_id, CrawlType.HOME, {
                     'last_topic_id': last_topic_id,
-                    'update_time': last_created_at.isoformat()
+                    'update_time': datetime.now().isoformat()
                 })
-                print(f"Successfully forwarded {success_count} home updates for group {group_id}")
+                logger.info(f"Successfully forwarded {success_count} home updates for group {group_name}")
         else:
-            print(f"No new home content for group {group_id}")
+            logger.info(f"No new home content for group {group_name}")
     
     # Process digest topics
     digest_state = StateManager.get_state(group_id, CrawlType.DIGEST)
@@ -84,15 +87,15 @@ def process_group(group_config: GroupConfig, notifier: TelegramNotifier):
     digest_topics, new_last_digest_id = crawler.get_digest_topics(last_topic_id=last_digest_id)
     if digest_topics:
         thread_id = group_config.get_thread_id('digest')
-        success_count, last_topic_id, last_created_at = process_topics(crawler, notifier, digest_topics, CrawlType.DIGEST.value, thread_id)
+        success_count, last_topic_id = process_topics(crawler, notifier, digest_topics, CrawlType.DIGEST.value, thread_id)
         if success_count > 0:
             StateManager.save_state(group_id, CrawlType.DIGEST, {
                 'last_topic_id': last_topic_id,
-                'update_time': last_created_at.isoformat()
+                'update_time': datetime.now().isoformat()
             })
-            print(f"Successfully forwarded {success_count} digest updates for group {group_id}")
+            logger.info(f"Successfully forwarded {success_count} digest updates for group {group_name}")
     else:
-        print(f"No new digest content for group {group_id}")
+        logger.info(f"No new digest content for group {group_name}")
 
 
 def main():
@@ -100,14 +103,20 @@ def main():
     try:
         validate_config()
     except ValueError as e:
-        print(f"Configuration error: {str(e)}")
+        logger.error(f"Configuration error: {str(e)}")
+        return
+
+    # Initialize group manager and load group info
+    group_manager = GroupManager()
+    if not group_manager.initialize_groups():
+        logger.error("Failed to initialize groups, exiting...")
         return
 
     # Initialize notifier
     notifier = TelegramNotifier()
     
     try:
-        print("Starting to crawl 知识星球 content...")
+        logger.info("Starting to crawl 知识星球 content...")
         
         # Process each configured group
         for group_id in GROUP_CONFIG_MANAGER.get_group_configs():
@@ -116,8 +125,10 @@ def main():
                 process_group(group_config, notifier)
             
     except Exception as e:
-        print(f"Error during crawling: {str(e)}")
+        logger.error(f"Error during crawling: {str(e)}")
         return
+    finally:
+        group_manager.close()
 
 
 if __name__ == "__main__":

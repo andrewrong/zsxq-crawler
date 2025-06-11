@@ -6,12 +6,17 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+import os
 
 import requests
 
 from config import COOKIE, GROUP_CONFIG_MANAGER
 
 from .models import Topic, SimpleTopic
+from src.utils.logger import setup_logger
+from src.managers.group_manager import GroupManager
+
+logger = setup_logger(__name__)
 
 
 class ZsxqCrawler:
@@ -27,6 +32,7 @@ class ZsxqCrawler:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         self.group_id = group_id
+        self.group_name = GroupManager().get_group_name(group_id)
         self.base_url = 'https://api.zsxq.com/v2'
         
     def _make_request(self, url: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -36,7 +42,7 @@ class ZsxqCrawler:
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            print(f"API request failed: {e}")
+            logger.error(f"API request failed: {e}")
             raise
 
     def get_topic_detail(self, topic_id: str) -> Optional[Topic]:
@@ -48,7 +54,7 @@ class ZsxqCrawler:
                 topic_data = data['resp_data']['topic']
                 return Topic.from_dict(topic_data)
         except Exception as e:
-            print(f"Failed to get topic detail (ID: {topic_id}): {e}")
+            logger.error(f"Failed to get topic detail (ID: {topic_id}): {e}")
         return None
 
     def get_digest_topics(self, count: int = 30, sort: str = 'by_create_time', direction: str = 'desc', last_topic_id: Optional[str] = None) -> Tuple[List[Topic], Optional[str]]:
@@ -80,7 +86,7 @@ class ZsxqCrawler:
                 if next_index is not None:
                     params['index'] = next_index
                     
-                print(f"Fetching digest topics for group {self.group_id}, index={next_index}")
+                logger.info(f"Fetching digest topics for group {self.group_name}, index={next_index}")
                 data = self._make_request(url, params)
                 
                 if not data.get('succeeded'):
@@ -90,7 +96,7 @@ class ZsxqCrawler:
                 topics_data = data.get('resp_data', {}).get('topics', [])
                 
                 if not topics_data:
-                    print(f"No more digest topics for group {self.group_id}")
+                    logger.info(f"No more digest topics for group {self.group_name}")
                     break
                     
                 current_batch = []
@@ -99,7 +105,7 @@ class ZsxqCrawler:
                         topic = SimpleTopic.from_dict(topic_data)
                         # If we find the last processed topic ID, stop processing
                         if last_topic_id and topic.topic_id == last_topic_id:
-                            print(f"Found already processed digest topic ID: {topic.topic_id} for group {self.group_id}, stopping")
+                            logger.info(f"Found already processed digest topic ID: {topic.topic_id} for group {self.group_name}, stopping")
                             found_last_topic = True
                             break
 
@@ -107,7 +113,7 @@ class ZsxqCrawler:
                         if topic_detail:
                             current_batch.append(topic_detail)
                     except Exception as e:
-                        print(f"Failed to process topic data: {str(e)}")
+                        logger.error(f"Failed to process topic data: {str(e)}")
                         continue
                 
                 # Stop if we found the last topic or no new topics in this batch
@@ -121,13 +127,13 @@ class ZsxqCrawler:
                 
                 # Stop if no more pages
                 if not next_index:
-                    print(f"No more digest topics for group {self.group_id}")
+                    logger.info(f"No more digest topics for group {self.group_name}")
                     break
                     
                 time.sleep(1)  # Avoid too frequent requests
                 
             except Exception as e:
-                print(f"Failed to get digest topics for group {self.group_id}: {str(e)}")
+                logger.error(f"Failed to get digest topics for group {self.group_name}: {str(e)}")
                 break
         
         if not all_topics:
@@ -161,12 +167,12 @@ class ZsxqCrawler:
                 if end_time:
                     params['end_time'] = end_time
                     
-                print(f"Fetching home topics for group {self.group_id}, end_time={end_time}")
+                logger.info(f"Fetching home topics for group {self.group_name}, end_time={end_time}")
                 data = self._make_request(url, params)
                 
                 topics_data = data.get('resp_data', {}).get('topics', [])
                 if not topics_data:
-                    print(f"No more topics for group {self.group_id}")
+                    logger.info(f"No more topics for group {self.group_name}")
                     break
                     
                 current_batch = []
@@ -177,7 +183,7 @@ class ZsxqCrawler:
                         topic = Topic.from_dict(topic_data)
                         # If we find the last processed topic ID, stop processing
                         if last_topic_id and topic.topic_id == last_topic_id:
-                            print(f"Found already processed topic ID: {topic.topic_id} for group {self.group_id}, stopping")
+                            logger.info(f"Found already processed topic ID: {topic.topic_id} for group {self.group_name}, stopping")
                             found_last_topic = True
                             break
                         
@@ -188,7 +194,7 @@ class ZsxqCrawler:
                             oldest_topic = topic
                             
                     except Exception as e:
-                        print(f"Failed to process topic data: {str(e)}")
+                        logger.error(f"Failed to process topic data: {str(e)}")
                         continue
                 
                 # Stop if we found the last topic or no new topics in this batch
@@ -211,12 +217,11 @@ class ZsxqCrawler:
                 time.sleep(1)  # Avoid too frequent requests
                         
             except Exception as e:
-                print(f"Error while crawling content for group {self.group_id}: {str(e)}")
+                logger.error(f"Error while crawling content for group {self.group_name}: {str(e)}")
                 break
         
         if not all_topics:
-            return [], None
-            
+            return [], None            
         # Get the oldest topic as last_topic_id
         oldest_overall = max(all_topics, key=lambda x: x.create_time)
         return all_topics, oldest_overall.topic_id

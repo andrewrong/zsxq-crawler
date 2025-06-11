@@ -81,6 +81,20 @@ class TelegramFormatter:
     def format_topic(topic: Topic, crawl_type: str) -> str:
         """Format a topic for Telegram message"""
         message_parts = []
+
+        media_parts = []
+        # Add image links if any
+        if topic.talk.images:
+            for img in topic.talk.images:
+                media_parts.append(f"<a href='{img.original.url}'>查看原图</a>")
+                    
+        # Add file links if any
+        if topic.talk.files:
+            for file in topic.talk.files:
+                size_mb = file.size / 1024 / 1024
+                media_parts.append(f"📎 <code>{TelegramFormatter.escape_html(file.name)}</code> ({size_mb:.1f}MB)")
+        if media_parts:
+            message_parts.append("\n\n" + " | ".join(media_parts))
         
         # Extract and format hashtags first
         text = topic.talk.text
@@ -134,21 +148,6 @@ class TelegramFormatter:
         message_parts.append("\n\n" + " | ".join(meta_parts))
         
         # Add media section (images and files with their links)
-        media_parts = []
-        
-        # Add image links if any
-        if topic.talk.images:
-            for img in topic.talk.images:
-                media_parts.append(f"<a href='{img.original.url}'>查看原图</a>")
-                    
-        # Add file links if any
-        if topic.talk.files:
-            for file in topic.talk.files:
-                size_mb = file.size / 1024 / 1024
-                media_parts.append(f"📎 <code>{TelegramFormatter.escape_html(file.name)}</code> ({size_mb:.1f}MB)")
-                
-        if media_parts:
-            message_parts.append("\n\n" + " | ".join(media_parts))
         
         # Add timestamp in local time format
         if isinstance(topic.create_time, datetime):

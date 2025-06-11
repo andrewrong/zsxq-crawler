@@ -2,65 +2,65 @@
 文件下载工具
 """
 import os
+import requests
 import tempfile
 from pathlib import Path
-from typing import Optional
+from config import TEMP_DIR
+from src.utils.logger import setup_logger
 
-import requests
-
+logger = setup_logger(__name__)
 
 class FileDownloader:
     @staticmethod
-    def download_file(url: str, filename: Optional[str] = None) -> Optional[str]:
+    def download_file(url: str, filename: str = None) -> str:
         """
-        从 URL 下载文件并返回本地路径
+        Download a file from URL and save it to temporary directory
         
         Args:
-            url: 要下载的文件 URL
-            filename: 可选的文件名
+            url (str): URL of the file to download
+            filename (str, optional): Name to save the file as. If not provided, will use the last part of URL
             
         Returns:
-            str: 下载的文件路径，如果下载失败则返回 None
+            str: Path to the downloaded file, or None if download failed
         """
         try:
+            # Get filename from URL if not provided
+            if not filename:
+                filename = url.split('/')[-1]
+                
+            # Create full path
+            file_path = TEMP_DIR / filename
+            
+            # Download file
             response = requests.get(url, stream=True)
             response.raise_for_status()
             
-            # 创建临时目录（如果不存在）
-            temp_dir = Path(tempfile.gettempdir()) / "zsxq_downloads"
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 使用提供的文件名或从 URL 提取
-            if not filename:
-                filename = os.path.basename(url.split('?')[0])
-            temp_path = temp_dir / filename
-            
-            # 获取文件总大小（如果可用）
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded_size = 0
-            
-            # 分块下载文件并显示进度
-            with open(temp_path, 'wb') as f:
+            # Save file
+            with open(file_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
-                        downloaded_size += len(chunk)
-                        if total_size > 0:
-                            progress = (downloaded_size / total_size) * 100
-                            print(f"\rDownloading {filename}: {progress:.1f}%", end="")
-                
-            if total_size > 0:
-                print()  # 打印换行
-            return str(temp_path)
+                        
+            logger.info(f"Successfully downloaded file: {filename}")
+            return str(file_path)
             
         except Exception as e:
-            print(f"文件下载失败 {url}: {e}")
+            logger.error(f"Failed to download file {url}: {e}")
             return None
+    
+    @staticmethod
+    def delete_filename(filename: str):
+        file_path = TEMP_DIR / filename
+        if file_path.exists():
+            file_path.unlink()
+            logger.info(f"Successfully deleted file: {filename}")
+        else:
+            logger.warning(f"File not found: {filename}")
 
     @staticmethod
     def cleanup_temp_files():
         """清理临时下载的文件"""
-        temp_dir = Path(tempfile.gettempdir()) / "zsxq_downloads"
+        temp_dir = TEMP_DIR
         if temp_dir.exists():
             for file in temp_dir.iterdir():
                 try:

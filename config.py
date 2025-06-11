@@ -2,6 +2,7 @@
 Configuration settings for the 知识星球 crawler.
 """
 import os
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from src.utils.group_config import GroupConfigManager
 
@@ -20,11 +21,13 @@ GROUP_CONFIG_MANAGER = GroupConfigManager(groups_config)
 # Crawling settings
 MAX_TOPICS_PER_FETCH = 20
 CRAWL_INTERVAL_MINUTES = int(get_env_or_default('CRAWL_INTERVAL_MINUTES', '60'))  # Default to 60 minutes
+TEMP_DIR = Path(get_env_or_default('TEMP_DIR',  '/tmp/zsxq_downloads'))
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Telegram settings - from environment variables
 TELEGRAM_BOT_TOKEN = get_env_or_default('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = get_env_or_default('TELEGRAM_CHAT_ID')
-TELEGRAM_TOPIC_ID = get_env_or_default('TELEGRAM_TOPIC_ID', None)
+TELEGRAM_TOPIC_ERROR_ID = get_env_or_default('TELEGRAM_TOPIC_ERROR_ID', None)
 
 # State persistence
 LAST_CRAWLED_FILE = 'last_crawled.json'
