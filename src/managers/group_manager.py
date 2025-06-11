@@ -75,7 +75,7 @@ class GroupManager:
             
             data = response.json()
             if not data.get('succeeded'):
-                logger.error(f"API error for group ID {group_id}: {data.get('resp_data', {}).get('error')}")
+                logger.error(f"API error for group ID {group_id}: {data}")
                 return None
             
             group = Group.from_dict(data)

@@ -1,6 +1,6 @@
 services:
   zsxq-crawler:
-    build: .
+    image: zsxq-crawler:0.0.1
     container_name: zsxq-crawler
     restart: unless-stopped
     env_file: .env
@@ -9,13 +9,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'  # 限制使用 0.5 个 CPU 核心
-          memory: 512M  # 限制内存使用为 512MB
+          cpus: '0.5' # 限制使用 0.5 个 CPU 核心
+          memory: 512M # 限制内存使用为 512MB
         reservations:
-          cpus: '0.1'  # 保证至少使用 0.1 个 CPU 核心
-          memory: 128M  # 保证至少使用 128MB 内存
+          cpus: '0.1' # 保证至少使用 0.1 个 CPU 核心
+          memory: 128M # 保证至少使用 128MB 内存
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"  # 单个日志文件最大 10MB
-        max-file: "3"    # 最多保留 3 个日志文件 
+        max-size: "10m" # 单个日志文件最大 10MB
+        max-file: "3" # 最多保留 3 个日志文件 

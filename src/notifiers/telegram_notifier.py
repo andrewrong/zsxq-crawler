@@ -26,7 +26,7 @@ class TelegramNotifier:
         self.chat_id = TELEGRAM_CHAT_ID
         if not self.bot_token or not self.chat_id:
             raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set")
-        self.bot = Bot(token=self.bot_token, timeout=60)
+        self.bot = Bot(token=self.bot_token)
         self._loop = None
 
     def _get_loop(self):
@@ -150,6 +150,10 @@ class TelegramNotifier:
                     text=text,
                     parse_mode=parse_mode,
                     message_thread_id=thread_id,
+                    read_timeout=60,  # 设置读取超时
+                    write_timeout=60,  # 设置写入超时
+                    connect_timeout=60,  # 设置连接超时
+                    pool_timeout=60  # 设置连接池超时
                 )
                 
         except TelegramError as e:
@@ -175,7 +179,11 @@ class TelegramNotifier:
                     chat_id=self.chat_id,
                     text=text,
                     parse_mode=parse_mode,
-                    message_thread_id=thread_id
+                    message_thread_id=thread_id,
+                    read_timeout=60,  # 设置读取超时
+                    write_timeout=60,  # 设置写入超时
+                    connect_timeout=60,  # 设置连接超时
+                    pool_timeout=60  # 设置连接池超时
                 )
             )
         except Exception as e:

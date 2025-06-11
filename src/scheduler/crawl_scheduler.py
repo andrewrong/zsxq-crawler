@@ -69,16 +69,16 @@ class CrawlScheduler:
         home_state = StateManager.get_state(group_id, CrawlType.HOME)
         last_home_id = home_state.get('last_topic_id') if home_state else None
         
-        topics, new_last_topic_id = crawler.crawl_home_topics(last_topic_id=last_home_id)
+        topics, _ = crawler.crawl_home_topics(last_topic_id=last_home_id)
         if topics:
             thread_id = group_config.get_thread_id('home')
-            success_count, last_topic_id = self._process_topics(
+            success_count, last_topic_id, last_topic_create_time = self._process_topics(
                 crawler, topics, CrawlType.HOME.value, thread_id
             )
             if success_count > 0:
                 StateManager.save_state(group_id, CrawlType.HOME, {
                     'last_topic_id': last_topic_id,
-                    'update_time': datetime.now().isoformat()
+                    'update_time': last_topic_create_time.isoformat()
                 })
                 logger.info(f"Successfully forwarded {success_count} home updates for group {group_name}")
         else:
@@ -91,16 +91,17 @@ class CrawlScheduler:
         digest_state = StateManager.get_state(group_id, CrawlType.DIGEST)
         last_digest_id = digest_state.get('last_topic_id') if digest_state else None
         
-        digest_topics, new_last_digest_id = crawler.get_digest_topics(last_topic_id=last_digest_id)
+        logger.info(f"the last topic id:{last_digest_id}")
+        digest_topics, _ = crawler.get_digest_topics(last_topic_id=last_digest_id)
         if digest_topics:
             thread_id = group_config.get_thread_id('digest')
-            success_count, last_topic_id = self._process_topics(
+            success_count, last_topic_id, last_topic_create_time = self._process_topics(
                 crawler, digest_topics, CrawlType.DIGEST.value, thread_id
             )
             if success_count > 0:
                 StateManager.save_state(group_id, CrawlType.DIGEST, {
                     'last_topic_id': last_topic_id,
-                    'update_time': datetime.now().isoformat()
+                    'update_time': last_topic_create_time.isoformat()
                 })
                 logger.info(f"Successfully forwarded {success_count} digest updates for group {group_name}")
         else:
@@ -110,6 +111,7 @@ class CrawlScheduler:
         """Process topics: format and send to Telegram"""
         success_count = 0
         last_topic_id = None
+        last_topic_create_time = None
         
         # Process topics from oldest to newest
         reversed_topics = list(reversed(topics))
@@ -128,8 +130,9 @@ class CrawlScheduler:
                 logger.info(f"Sent topic: {topic.title or f'ID:{topic.topic_id}'}")
                 
                 # Record last processed topic ID
-                if not last_topic_id or topic.topic_id > last_topic_id:
+                if not last_topic_create_time or topic.create_time > last_topic_create_time:
                     last_topic_id = topic.topic_id
+                    last_topic_create_time = topic.create_time
                     
                 time.sleep(2)  # Avoid sending too fast
                 
@@ -137,7 +140,7 @@ class CrawlScheduler:
                 logger.error(f"Failed to process topic [ID:{topic.topic_id}]: {e}")
                 continue
                 
-        return success_count, last_topic_id
+        return success_count, last_topic_id, last_topic_create_time
         
     def start(self, interval_minutes: int = 60):
         """Start the scheduler with the specified interval"""

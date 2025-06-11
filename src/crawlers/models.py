@@ -4,6 +4,11 @@ Data models for 知识星球 content
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
+import pandas as pd
+from src.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
 
 
 @dataclass
@@ -217,12 +222,10 @@ class Topic:
         latest_likes = [Like.from_dict(like) for like in data.get('latest_likes', [])]
         create_time_str = data.get('create_time', '')
         try:
-            create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S.%f%z')
-        except ValueError:
-            try:
-                create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S%z')
-            except ValueError:
-                create_time = datetime.now()
+            create_time = pd.to_datetime(create_time_str)
+        except ValueError as e:
+            logger.error(f"create time parse error:{e}")
+            create_time = datetime.now()
 
         return cls(
             topic_id=int(data.get('topic_id', 0)),
@@ -262,11 +265,10 @@ class SimpleTopic:
         create_time_str = data.get('create_time', '')
         try:
             create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S.%f%z')
-        except ValueError:
-            try:
-                create_time = datetime.strptime(create_time_str, '%Y-%m-%dT%H:%M:%S%z')
-            except ValueError:
-                create_time = datetime.now()
+        except ValueError as e:
+            logger.error(f"create_time parse is error: {e}")
+            create_time = datetime.now()
+
         return cls(
             topic_id=int(data.get('topic_id', 0)),
             title=data.get('title', ''),
